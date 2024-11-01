@@ -141,6 +141,10 @@ mod test {
 
     #[test]
     fn simple() {
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
         let queue = DLQueue::new();
         let guard = &cs();
         assert!(queue.dequeue(guard).is_none());
@@ -155,6 +159,10 @@ mod test {
 
     #[test]
     fn smoke() {
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
         const THREADS: usize = 100;
         const ELEMENTS_PER_THREAD: usize = 10000;
 
@@ -166,6 +174,9 @@ mod test {
             for t in 0..THREADS {
                 let queue = &queue;
                 s.spawn(move |_| {
+                    unsafe {
+                        context.initialize();
+                    }
                     for i in 0..ELEMENTS_PER_THREAD {
                         queue.enqueue((t * ELEMENTS_PER_THREAD + i).to_string(), &cs());
                     }
@@ -179,6 +190,9 @@ mod test {
                 let queue = &queue;
                 let found = &found;
                 s.spawn(move |_| {
+                    unsafe {
+                        context.initialize();
+                    }
                     for _ in 0..ELEMENTS_PER_THREAD {
                         let guard = cs();
                         let output = queue.dequeue(&guard).unwrap();

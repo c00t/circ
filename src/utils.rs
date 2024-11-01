@@ -50,8 +50,8 @@ const WEAK: u64 = ((1 << WEAK_WIDTH) - 1) << STRONG_WIDTH;
 const COUNT: u64 = 1;
 const WEAK_COUNT: u64 = 1 << STRONG_WIDTH;
 
-thread_local! {
-    static DISPOSE_COUNTER: Cell<usize> = const { Cell::new(0) };
+dyntls::thread_local! {
+    static DISPOSE_COUNTER: Cell<usize> = Cell::new(0);
 }
 
 /// Effectively wraps the presence of epoch and destruction bits.

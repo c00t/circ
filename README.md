@@ -94,6 +94,7 @@ For in-depth discussion, see the aforementioned research paper.
 ## Example
 
 ```rust
+use dyntls_host;
 use circ::{cs, AtomicRc, RcObject, Rc, Snapshot};
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -112,6 +113,10 @@ unsafe impl RcObject for Node {
     }
 }
 
+let context = dyntls_host::get();
+unsafe {
+    context.initialize();
+}
 
 // Let's create a root node with an item `1`.
 let root = AtomicRc::new(Node {

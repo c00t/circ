@@ -256,6 +256,11 @@ fn smoke() {
     use crossbeam_utils::thread;
     use rand::prelude::*;
 
+    let context = dyntls_host::get();
+    unsafe {
+        context.initialize();
+    }
+
     const THREADS: i32 = 30;
     const ELEMENTS_PER_THREADS: i32 = 1000;
 
@@ -264,6 +269,9 @@ fn smoke() {
     thread::scope(|s| {
         for t in 0..THREADS {
             s.spawn(move |_| {
+                unsafe {
+                    context.initialize();
+                }
                 let rng = &mut rand::thread_rng();
                 let mut keys: Vec<i32> =
                     (0..ELEMENTS_PER_THREADS).map(|k| k * THREADS + t).collect();
@@ -279,6 +287,9 @@ fn smoke() {
     thread::scope(|s| {
         for t in 0..(THREADS / 2) {
             s.spawn(move |_| {
+                unsafe {
+                    context.initialize();
+                }
                 let rng = &mut rand::thread_rng();
                 let mut keys: Vec<i32> =
                     (0..ELEMENTS_PER_THREADS).map(|k| k * THREADS + t).collect();
@@ -296,6 +307,9 @@ fn smoke() {
     thread::scope(|s| {
         for t in (THREADS / 2)..THREADS {
             s.spawn(move |_| {
+                unsafe {
+                    context.initialize();
+                }
                 let rng = &mut rand::thread_rng();
                 let mut keys: Vec<i32> =
                     (0..ELEMENTS_PER_THREADS).map(|k| k * THREADS + t).collect();

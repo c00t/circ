@@ -114,6 +114,10 @@ mod tests {
 
     #[test]
     fn pin_reentrant() {
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
         let collector = Collector::new();
         let handle = collector.register();
         drop(collector);
@@ -133,6 +137,10 @@ mod tests {
 
     #[test]
     fn flush_local_bag() {
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
         let collector = Collector::new();
         let handle = collector.register();
         drop(collector);
@@ -155,6 +163,10 @@ mod tests {
 
     #[test]
     fn garbage_buffering() {
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
         let collector = Collector::new();
         let handle = collector.register();
         drop(collector);
@@ -176,11 +188,18 @@ mod tests {
         #[cfg(not(miri))]
         const N: usize = 500_000;
 
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
         let collector = Collector::new();
 
         thread::scope(|scope| {
             for _ in 0..NUM_THREADS {
                 scope.spawn(|_| {
+                    unsafe {
+                        context.initialize();
+                    }
                     let handle = collector.register();
                     for _ in 0..N {
                         let guard = &handle.pin();
@@ -204,7 +223,13 @@ mod tests {
         const N: usize = 500;
         #[cfg(not(miri))]
         const N: usize = 100_000;
-        static DESTROYS: AtomicUsize = AtomicUsize::new(0);
+        dyntls::lazy_static! {
+            static ref DESTROYS_BUFFERING: AtomicUsize = AtomicUsize::new(0);
+        }
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
 
         let collector = Collector::new();
         let handle = collector.register();
@@ -215,7 +240,7 @@ mod tests {
                 let a = RawShared::from_owned(7);
                 guard.defer_unchecked(move || {
                     a.drop();
-                    DESTROYS.fetch_add(1, Ordering::Relaxed);
+                    DESTROYS_BUFFERING.fetch_add(1, Ordering::Relaxed);
                 });
             }
         }
@@ -223,15 +248,15 @@ mod tests {
         for _ in 0..N {
             collector.global.collect(&handle.pin());
         }
-        assert!(DESTROYS.load(Ordering::Relaxed) < COUNT);
+        assert!(DESTROYS_BUFFERING.load(Ordering::Relaxed) < COUNT);
 
         handle.pin().flush();
 
-        while DESTROYS.load(Ordering::Relaxed) < COUNT {
+        while DESTROYS_BUFFERING.load(Ordering::Relaxed) < COUNT {
             let guard = &handle.pin();
             collector.global.collect(guard);
         }
-        assert_eq!(DESTROYS.load(Ordering::Relaxed), COUNT);
+        assert_eq!(DESTROYS_BUFFERING.load(Ordering::Relaxed), COUNT);
     }
 
     #[test]
@@ -240,14 +265,21 @@ mod tests {
         const COUNT: usize = 500;
         #[cfg(not(miri))]
         const COUNT: usize = 100_000;
-        static DROPS: AtomicUsize = AtomicUsize::new(0);
+        dyntls::lazy_static! {
+            static ref DROPS_COUNT_DROPS: AtomicUsize = AtomicUsize::new(0);
+        }
+
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
 
         #[allow(dead_code)]
         struct Elem(i32);
 
         impl Drop for Elem {
             fn drop(&mut self) {
-                DROPS.fetch_add(1, Ordering::Relaxed);
+                DROPS_COUNT_DROPS.fetch_add(1, Ordering::Relaxed);
             }
         }
 
@@ -264,11 +296,11 @@ mod tests {
             guard.flush();
         }
 
-        while DROPS.load(Ordering::Relaxed) < COUNT {
+        while DROPS_COUNT_DROPS.load(Ordering::Relaxed) < COUNT {
             let guard = &handle.pin();
             collector.global.collect(guard);
         }
-        assert_eq!(DROPS.load(Ordering::Relaxed), COUNT);
+        assert_eq!(DROPS_COUNT_DROPS.load(Ordering::Relaxed), COUNT);
     }
 
     #[test]
@@ -277,7 +309,14 @@ mod tests {
         const COUNT: usize = 500;
         #[cfg(not(miri))]
         const COUNT: usize = 100_000;
-        static DESTROYS: AtomicUsize = AtomicUsize::new(0);
+        dyntls::lazy_static! {
+            static ref DESTROYS_COUNT_DESTROY: AtomicUsize = AtomicUsize::new(0);
+        }
+
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
 
         let collector = Collector::new();
         let handle = collector.register();
@@ -289,30 +328,36 @@ mod tests {
                 let a = RawShared::from_owned(7);
                 guard.defer_unchecked(move || {
                     a.drop();
-                    DESTROYS.fetch_add(1, Ordering::Relaxed);
+                    DESTROYS_COUNT_DESTROY.fetch_add(1, Ordering::Relaxed);
                 });
             }
             guard.flush();
         }
 
-        while DESTROYS.load(Ordering::Relaxed) < COUNT {
+        while DESTROYS_COUNT_DESTROY.load(Ordering::Relaxed) < COUNT {
             let guard = &handle.pin();
             collector.global.collect(guard);
         }
-        assert_eq!(DESTROYS.load(Ordering::Relaxed), COUNT);
+        assert_eq!(DESTROYS_COUNT_DESTROY.load(Ordering::Relaxed), COUNT);
     }
 
     #[test]
     fn drop_array() {
         const COUNT: usize = 700;
-        static DROPS: AtomicUsize = AtomicUsize::new(0);
+        dyntls::lazy_static! {
+            static ref DROPS_DROP_ARRAY: AtomicUsize = AtomicUsize::new(0);
+        }
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
 
         #[allow(dead_code)]
         struct Elem(i32);
 
         impl Drop for Elem {
             fn drop(&mut self) {
-                DROPS.fetch_add(1, Ordering::Relaxed);
+                DROPS_DROP_ARRAY.fetch_add(1, Ordering::Relaxed);
             }
         }
 
@@ -334,11 +379,11 @@ mod tests {
             guard.flush();
         }
 
-        while DROPS.load(Ordering::Relaxed) < COUNT {
+        while DROPS_DROP_ARRAY.load(Ordering::Relaxed) < COUNT {
             guard.reactivate();
             collector.global.collect(&guard);
         }
-        assert_eq!(DROPS.load(Ordering::Relaxed), COUNT);
+        assert_eq!(DROPS_DROP_ARRAY.load(Ordering::Relaxed), COUNT);
     }
 
     #[test]
@@ -347,7 +392,14 @@ mod tests {
         const COUNT: usize = 500;
         #[cfg(not(miri))]
         const COUNT: usize = 100_000;
-        static DESTROYS: AtomicUsize = AtomicUsize::new(0);
+        dyntls::lazy_static! {
+            static ref DESTROYS_DESTROY_ARRAY: AtomicUsize = AtomicUsize::new(0);
+        }
+
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
 
         let collector = Collector::new();
         let handle = collector.register();
@@ -364,16 +416,16 @@ mod tests {
             let ptr = ManuallyDrop::new(v).as_mut_ptr() as usize;
             guard.defer_unchecked(move || {
                 drop(Vec::from_raw_parts(ptr as *const i32 as *mut i32, len, len));
-                DESTROYS.fetch_add(len, Ordering::Relaxed);
+                DESTROYS_DESTROY_ARRAY.fetch_add(len, Ordering::Relaxed);
             });
             guard.flush();
         }
 
-        while DESTROYS.load(Ordering::Relaxed) < COUNT {
+        while DESTROYS_DESTROY_ARRAY.load(Ordering::Relaxed) < COUNT {
             let guard = &handle.pin();
             collector.global.collect(guard);
         }
-        assert_eq!(DESTROYS.load(Ordering::Relaxed), COUNT);
+        assert_eq!(DESTROYS_DESTROY_ARRAY.load(Ordering::Relaxed), COUNT);
     }
 
     #[test]
@@ -383,14 +435,21 @@ mod tests {
         const COUNT: usize = 500;
         #[cfg(not(miri))]
         const COUNT: usize = 100_000;
-        static DROPS: AtomicUsize = AtomicUsize::new(0);
+        dyntls::lazy_static! {
+            static ref DROPS_STRESS: AtomicUsize = AtomicUsize::new(0);
+        }
+
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
 
         #[allow(dead_code)]
         struct Elem(i32);
 
         impl Drop for Elem {
             fn drop(&mut self) {
-                DROPS.fetch_add(1, Ordering::Relaxed);
+                DROPS_STRESS.fetch_add(1, Ordering::Relaxed);
             }
         }
 
@@ -399,6 +458,9 @@ mod tests {
         thread::scope(|scope| {
             for _ in 0..THREADS {
                 scope.spawn(|_| {
+                    unsafe {
+                        context.initialize();
+                    }
                     let handle = collector.register();
                     for _ in 0..COUNT {
                         let guard = &handle.pin();
@@ -413,10 +475,10 @@ mod tests {
         .unwrap();
 
         let handle = collector.register();
-        while DROPS.load(Ordering::Relaxed) < COUNT * THREADS {
+        while DROPS_STRESS.load(Ordering::Relaxed) < COUNT * THREADS {
             let guard = &handle.pin();
             collector.global.collect(guard);
         }
-        assert_eq!(DROPS.load(Ordering::Relaxed), COUNT * THREADS);
+        assert_eq!(DROPS_STRESS.load(Ordering::Relaxed), COUNT * THREADS);
     }
 }

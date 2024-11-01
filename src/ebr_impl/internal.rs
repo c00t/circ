@@ -51,10 +51,18 @@ use super::guard::{unprotected, Guard};
 use super::sync::list::{Entry, IsElement, IterError, List};
 use super::sync::queue::Queue;
 
-/// Maximum number of objects a bag can contain.
-static mut MAX_OBJECTS: usize = 64;
+// /// Maximum number of objects a bag can contain.
+// static mut MAX_OBJECTS: usize = 64;
 
-static mut MANUAL_EVENTS_BETWEEN_COLLECT: usize = 64;
+dyntls::lazy_static! {
+    static ref MAX_OBJECTS: usize = 64;
+}
+
+// static mut MANUAL_EVENTS_BETWEEN_COLLECT: usize = 64;
+
+dyntls::lazy_static! {
+    static ref MANUAL_EVENTS_BETWEEN_COLLECT: usize = 64;
+}
 
 /// A bag of deferred functions.
 pub(crate) struct Bag(Vec<Deferred>);
@@ -98,7 +106,7 @@ impl Bag {
 
 impl Default for Bag {
     fn default() -> Self {
-        Bag(Vec::with_capacity(unsafe { MAX_OBJECTS }))
+        Bag(Vec::with_capacity(unsafe { *MAX_OBJECTS }))
     }
 }
 
@@ -561,7 +569,7 @@ impl Local {
         let manual_count = self.manual_count.get().wrapping_add(1);
         self.manual_count.set(manual_count);
 
-        if manual_count % unsafe { MANUAL_EVENTS_BETWEEN_COLLECT } == 0 {
+        if manual_count % unsafe { *MANUAL_EVENTS_BETWEEN_COLLECT } == 0 {
             self.flush(guard);
         }
     }
@@ -593,20 +601,32 @@ mod tests {
 
     #[test]
     fn check_defer() {
-        static FLAG: AtomicUsize = AtomicUsize::new(0);
+        dyntls::lazy_static! {
+            static ref FLAG_CHECK_DEFER: AtomicUsize = AtomicUsize::new(0);
+        }
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
         fn set() {
-            FLAG.store(42, Ordering::Relaxed);
+            FLAG_CHECK_DEFER.store(42, Ordering::Relaxed);
         }
 
         let d = Deferred::new(set);
-        assert_eq!(FLAG.load(Ordering::Relaxed), 0);
+        assert_eq!(FLAG_CHECK_DEFER.load(Ordering::Relaxed), 0);
         d.call();
-        assert_eq!(FLAG.load(Ordering::Relaxed), 42);
+        assert_eq!(FLAG_CHECK_DEFER.load(Ordering::Relaxed), 42);
     }
 
     #[test]
     fn check_bag() {
-        static FLAG: AtomicUsize = AtomicUsize::new(0);
+        dyntls::lazy_static! {
+            static ref FLAG: AtomicUsize = AtomicUsize::new(0);
+        }
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
+        }
         fn incr() {
             FLAG.fetch_add(1, Ordering::Relaxed);
         }
@@ -614,7 +634,7 @@ mod tests {
         let mut bag = Bag::new();
         assert!(bag.is_empty());
 
-        for _ in 0..unsafe { MAX_OBJECTS } {
+        for _ in 0..unsafe { *MAX_OBJECTS } {
             assert!(unsafe { bag.try_push(Deferred::new(incr)).is_ok() });
             assert!(!bag.is_empty());
             assert_eq!(FLAG.load(Ordering::Relaxed), 0);
@@ -626,6 +646,6 @@ mod tests {
         assert_eq!(FLAG.load(Ordering::Relaxed), 0);
 
         drop(bag);
-        assert_eq!(FLAG.load(Ordering::Relaxed), unsafe { MAX_OBJECTS });
+        assert_eq!(FLAG.load(Ordering::Relaxed), unsafe { *MAX_OBJECTS });
     }
 }

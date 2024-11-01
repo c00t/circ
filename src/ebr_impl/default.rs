@@ -8,13 +8,19 @@ use super::collector::{Collector, LocalHandle};
 use super::guard::Guard;
 use super::sync::once_lock::OnceLock;
 
-fn collector() -> &'static Collector {
-    /// The global data for the default garbage collector.
-    static COLLECTOR: OnceLock<Collector> = OnceLock::new();
-    COLLECTOR.get_or_init(Collector::new)
+/// The global data for the default garbage collector.
+dyntls::lazy_static! {
+    static ref COLLECTOR: Collector = Collector::new();
 }
 
-thread_local! {
+
+fn collector() -> &'static Collector {
+    // /// The global data for the default garbage collector.
+    // static COLLECTOR: OnceLock<Collector> = OnceLock::new();
+    &COLLECTOR
+}
+
+dyntls::thread_local! {
     /// The per-thread participant for the default garbage collector.
     static HANDLE: LocalHandle = collector().register();
 }
@@ -60,12 +66,19 @@ mod tests {
             }
         }
 
-        thread_local! {
-            static FOO: Foo = const { Foo };
+        dyntls::thread_local! {
+            static FOO: Foo = Foo;
+        }
+        let context = dyntls_host::get();
+        unsafe {
+            context.initialize();
         }
 
         thread::scope(|scope| {
             scope.spawn(|_| {
+                unsafe {
+                    context.initialize();
+                }
                 // Initialize `FOO` and then `HANDLE`.
                 FOO.with(|_| ());
                 super::cs();
