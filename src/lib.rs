@@ -5,6 +5,6 @@ mod strong;
 mod utils;
 mod weak;
 
-pub use ebr_impl::{cs, Guard};
+pub use ebr_impl::{cs, Guard, unprotected as unprotected_cs};
 pub use strong::*;
 pub use weak::*;
