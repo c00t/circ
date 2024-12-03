@@ -22,6 +22,7 @@ cfg-if = "1.0"
 # rustc-hash = "1.1.0"
 memoffset = "0.7"
 dyntls = { path = "../../../app/dyntls" }
+tracing = { path = "../tracing/tracing" }
 
 [dev-dependencies]
 rand = "0.8"
